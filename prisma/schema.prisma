@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String                      @id @map("_id") @default(auto()) @db.ObjectId
+  uid                  String                      @unique @default(cuid())
+  loginId              String?                     @unique
+  username             String                      @default("")
+  name                 String?
+  email                String?                     @unique
+  emailVerified        DateTime?
+  image                String?
+  bio                  String?
+  onboardingCompleted  Boolean                     @default(false)
+  hobbies              UserHobby[]
+  accounts             Account[]
+  sessions             Session[]
+  conversations        ConversationParticipant[]
+  createdConversations Conversation[]              @relation("ConversationCreator")
+  messages             Message[]                   @relation("MessageSender")
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+
+  sentSwipes     Swipe[] @relation("SwipeSender")
+  receivedSwipes Swipe[] @relation("SwipeReceiver")
+}
+
+model Swipe {
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
+  swiperId  String   @db.ObjectId
+  targetId  String   @db.ObjectId
+  action    String // "LIKE" | "PASS"
+  createdAt DateTime @default(now())
+
+  swiper User @relation("SwipeSender", fields: [swiperId], references: [id])
+  target User @relation("SwipeReceiver", fields: [targetId], references: [id])
+
+  @@unique([swiperId, targetId])
+}
+
+model Account {
+  id                 String  @id @map("_id") @default(auto()) @db.ObjectId
+  userId             String  @db.ObjectId
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  oauth_token_secret String?
+  oauth_token        String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @map("_id") @default(auto()) @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model VerificationToken {
+  id         String   @id @map("_id") @default(auto()) @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Hobby {
+  id        String       @id @map("_id") @default(auto()) @db.ObjectId
+  name      String       @unique
+  slug      String       @unique
+  users     UserHobby[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model UserHobby {
+  id      String @id @map("_id") @default(auto()) @db.ObjectId
+  userId  String @db.ObjectId
+  hobbyId String @db.ObjectId
+
+  user  User  @relation(fields: [userId], references: [id])
+  hobby Hobby @relation(fields: [hobbyId], references: [id])
+
+  @@unique([userId, hobbyId])
+}
+
+model Conversation {
+  id            String                      @id @map("_id") @default(auto()) @db.ObjectId
+  title         String?
+  isGroup       Boolean                     @default(false)
+  creatorId     String?                     @db.ObjectId
+  lastMessageAt DateTime                    @default(now())
+  participants  ConversationParticipant[]
+  messages      Message[]
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+
+  creator User? @relation("ConversationCreator", fields: [creatorId], references: [id])
+}
+
+model ConversationParticipant {
+  id             String        @id @map("_id") @default(auto()) @db.ObjectId
+  conversationId String        @db.ObjectId
+  userId         String        @db.ObjectId
+  role           String        @default("member")
+  joinedAt       DateTime      @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String        @id @map("_id") @default(auto()) @db.ObjectId
+  conversationId String        @db.ObjectId
+  senderId       String        @db.ObjectId
+  content        String
+  imageUrl       String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id])
+}
