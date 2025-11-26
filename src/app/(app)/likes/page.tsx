@@ -24,6 +24,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 
 import { apiClient } from '@/lib/api';
+import UserProfileDialog from '@/components/common/UserProfileDialog';
 
 type Liker = {
     id: string;
@@ -39,6 +40,7 @@ export default function LikesPage() {
     const [likes, setLikes] = useState<Liker[]>([]);
     const [loading, setLoading] = useState(true);
     const [matchData, setMatchData] = useState<{ match: boolean; username: string } | null>(null);
+    const [selectedUser, setSelectedUser] = useState<Liker | null>(null);
 
     const fetchLikes = async () => {
         try {
@@ -117,7 +119,21 @@ export default function LikesPage() {
                             flexDirection: 'column'
                         }}
                     >
-                        <Card sx={{ borderRadius: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                        <Card
+                            sx={{
+                                borderRadius: 4,
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: 4
+                                }
+                            }}
+                            onClick={() => setSelectedUser(liker)}
+                        >
                             <Box sx={{ height: 200, bgcolor: 'grey.200', position: 'relative' }}>
                                 {liker.image ? (
                                     <Box
@@ -150,7 +166,7 @@ export default function LikesPage() {
                                     {liker.bio || '沒有自我介紹'}
                                 </Typography>
                             </CardContent>
-                            <Stack direction="row" spacing={1} p={2} pt={0}>
+                            <Stack direction="row" spacing={1} p={2} pt={0} onClick={(e) => e.stopPropagation()}>
                                 <Button
                                     fullWidth
                                     variant="outlined"
@@ -195,6 +211,12 @@ export default function LikesPage() {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <UserProfileDialog
+                open={!!selectedUser}
+                onClose={() => setSelectedUser(null)}
+                user={selectedUser}
+            />
         </Container>
     );
 }
