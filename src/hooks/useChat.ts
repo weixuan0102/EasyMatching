@@ -35,11 +35,14 @@ export const useChat = ({ conversationId, initialMessages }: UseChatProps) => {
         };
     }, [conversationId]);
 
-    const sendMessage = async (content: string) => {
+    const sendMessage = async (
+        data: { content?: string; imageUrl?: string; videoUrl?: string; audioUrl?: string },
+        replyToId?: string
+    ) => {
         try {
             const response = await apiClient.post<MessageListItem>(
                 `/api/conversations/${conversationId}/messages`,
-                { content }
+                { ...data, replyToId }
             );
 
             const newMessage = response.data;

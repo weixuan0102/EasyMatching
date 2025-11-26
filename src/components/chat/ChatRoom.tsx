@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Avatar, Box, Divider, Snackbar, Stack, Typography } from '@mui/material';
 
 import MessageComposer from '@/components/chat/MessageComposer';
@@ -46,6 +46,12 @@ export default function ChatRoom({
     conversationId,
     initialMessages
   });
+  const [replyTo, setReplyTo] = useState<MessageListItem | null>(null);
+
+  const handleSend = async (data: { content?: string; imageUrl?: string; videoUrl?: string; audioUrl?: string }) => {
+    await sendMessage(data, replyTo?.id);
+    setReplyTo(null);
+  };
 
   const title = useMemo(
     () => getConversationTitle(conversation, currentUserId),
@@ -96,10 +102,18 @@ export default function ChatRoom({
       </Box>
 
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <MessageList messages={messages} currentUserId={currentUserId} />
+        <MessageList
+          messages={messages}
+          currentUserId={currentUserId}
+          onReply={setReplyTo}
+        />
       </Box>
       <Divider />
-      <MessageComposer onSend={sendMessage} />
+      <MessageComposer
+        onSend={handleSend}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
+      />
       <Snackbar
         open={Boolean(error)}
         onClose={clearError}

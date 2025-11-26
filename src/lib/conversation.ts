@@ -41,6 +41,17 @@ const messageInclude = {
       username: true,
       image: true
     }
+  },
+  replyTo: {
+    select: {
+      id: true,
+      content: true,
+      sender: {
+        select: {
+          username: true
+        }
+      }
+    }
   }
 } satisfies Prisma.MessageInclude;
 
@@ -68,12 +79,12 @@ const serializeConversation = (conversation: ConversationWithExtras) => {
     })),
     latestMessage: latest
       ? {
-          id: latest.id,
-          content: latest.content,
-          imageUrl: latest.imageUrl,
-          createdAt: latest.createdAt.toISOString(),
-          sender: latest.sender
-        }
+        id: latest.id,
+        content: latest.content,
+        imageUrl: latest.imageUrl,
+        createdAt: latest.createdAt.toISOString(),
+        sender: latest.sender
+      }
       : null,
     createdAt: conversation.createdAt.toISOString(),
     updatedAt: conversation.updatedAt.toISOString()
@@ -86,9 +97,20 @@ const serializeMessage = (message: MessageWithSender) => ({
   senderId: message.senderId,
   content: message.content,
   imageUrl: message.imageUrl,
+  videoUrl: message.videoUrl,
+  audioUrl: message.audioUrl,
   createdAt: message.createdAt.toISOString(),
   updatedAt: message.updatedAt.toISOString(),
-  sender: message.sender
+  sender: message.sender,
+  replyTo: message.replyTo
+    ? {
+      id: message.replyTo.id,
+      content: message.replyTo.content,
+      sender: {
+        username: message.replyTo.sender.username
+      }
+    }
+    : null
 });
 
 export const listUserConversations = async (userId: string) => {
@@ -229,15 +251,21 @@ type SendMessageInput = {
   senderId: string;
   content?: string;
   imageUrl?: string;
+  videoUrl?: string;
+  audioUrl?: string;
+  replyToId?: string;
 };
 
 export const sendMessage = async ({
   conversationId,
   senderId,
   content,
-  imageUrl
+  imageUrl,
+  videoUrl,
+  audioUrl,
+  replyToId
 }: SendMessageInput) => {
-  if (!content && !imageUrl) {
+  if (!content && !imageUrl && !videoUrl && !audioUrl) {
     throw new Error('訊息內容不得為空');
   }
 
@@ -269,7 +297,10 @@ export const sendMessage = async ({
       conversationId,
       senderId,
       content: content ?? '',
-      imageUrl: imageUrl ?? null
+      imageUrl: imageUrl ?? null,
+      videoUrl: videoUrl ?? null,
+      audioUrl: audioUrl ?? null,
+      replyToId: replyToId ?? null
     },
     include: messageInclude
   });

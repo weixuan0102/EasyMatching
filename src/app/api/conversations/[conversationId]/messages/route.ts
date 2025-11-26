@@ -13,7 +13,10 @@ const unauthorized = NextResponse.json({ error: '未授權' }, { status: 401 });
 
 const sendMessageSchema = z.object({
   content: z.string().trim().optional(),
-  imageUrl: z.string().url().optional()
+  imageUrl: z.string().optional(),
+  videoUrl: z.string().optional(),
+  audioUrl: z.string().optional(),
+  replyToId: z.string().optional()
 });
 
 type RouteContext = {
@@ -69,7 +72,10 @@ export async function POST(request: Request, context: RouteContext) {
       conversationId,
       senderId: session.user.id,
       content: payload.content,
-      imageUrl: payload.imageUrl
+      imageUrl: payload.imageUrl,
+      videoUrl: payload.videoUrl,
+      audioUrl: payload.audioUrl,
+      replyToId: payload.replyToId
     });
 
     return NextResponse.json(message, { status: 201 });

@@ -20,16 +20,27 @@ export type MessageListItem = {
     username: string;
     image: string | null;
   };
+  replyTo: {
+    id: string;
+    content: string;
+    sender: {
+      username: string;
+    };
+  } | null;
+  videoUrl: string | null;
+  audioUrl: string | null;
 };
 
 type MessageListProps = {
   messages: MessageListItem[];
   currentUserId: string;
+  onReply: (message: MessageListItem) => void;
 };
 
 export default function MessageList({
   messages,
-  currentUserId
+  currentUserId,
+  onReply
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -77,7 +88,10 @@ export default function MessageList({
                 spacing={0.5}
                 alignItems={alignment}
                 sx={{
-                  maxWidth: '70%'
+                  maxWidth: '70%',
+                  '&:hover .reply-button': {
+                    opacity: 1
+                  }
                 }}
               >
                 <Stack direction="row" justifyContent={alignment}>
@@ -85,7 +99,41 @@ export default function MessageList({
                     {isSelf ? '我' : message.sender.username}
                   </Typography>
                 </Stack>
+                {message.replyTo && (
+                  <Box
+                    sx={{
+                      bgcolor: 'action.hover',
+                      p: 1,
+                      borderRadius: 2,
+                      mb: 0.5,
+                      cursor: 'pointer',
+                      borderLeft: 3,
+                      borderColor: 'primary.main'
+                    }}
+                    onClick={() => {
+                      const el = document.getElementById(`message-${message.replyTo?.id}`);
+                      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      回覆 {message.replyTo.sender.username}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.primary"
+                      sx={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 1,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      {message.replyTo.content}
+                    </Typography>
+                  </Box>
+                )}
                 <Box
+                  id={`message-${message.id}`}
                   sx={{
                     bgcolor: color,
                     color: textColor,
@@ -93,27 +141,78 @@ export default function MessageList({
                     py: 1.5,
                     borderRadius: 3,
                     borderTopRightRadius: isSelf ? 6 : 24,
-                    borderTopLeftRadius: isSelf ? 24 : 6
+                    borderTopLeftRadius: isSelf ? 24 : 6,
+                    position: 'relative'
                   }}
                 >
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      overflowWrap: 'anywhere'
-                    }}
-                  >
-                    {message.content}
-                  </Typography>
+                  {message.imageUrl && (
+                    <Box sx={{ mb: message.content ? 1 : 0 }}>
+                      <img
+                        src={message.imageUrl}
+                        alt="Image"
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: 300,
+                          borderRadius: 8,
+                          display: 'block'
+                        }}
+                      />
+                    </Box>
+                  )}
+                  {message.videoUrl && (
+                    <Box sx={{ mb: message.content ? 1 : 0 }}>
+                      <video
+                        src={message.videoUrl}
+                        controls
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: 300,
+                          borderRadius: 8,
+                          display: 'block'
+                        }}
+                      />
+                    </Box>
+                  )}
+                  {message.audioUrl && (
+                    <Box sx={{ mb: message.content ? 1 : 0 }}>
+                      <audio src={message.audioUrl} controls style={{ maxWidth: '100%' }} />
+                    </Box>
+                  )}
+                  {message.content && (
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere'
+                      }}
+                    >
+                      {message.content}
+                    </Typography>
+                  )}
                 </Box>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ textAlign: alignment }}
-                >
-                  {dayjs(message.createdAt).format('YYYY/MM/DD HH:mm')}
-                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center" justifyContent={alignment}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                  >
+                    {dayjs(message.createdAt).format('YYYY/MM/DD HH:mm')}
+                  </Typography>
+                  <Typography
+                    className="reply-button"
+                    variant="caption"
+                    sx={{
+                      cursor: 'pointer',
+                      opacity: 0,
+                      transition: 'opacity 0.2s',
+                      color: 'primary.main',
+                      fontWeight: 500
+                    }}
+                    onClick={() => onReply(message)}
+                  >
+                    回覆
+                  </Typography>
+                </Stack>
               </Stack>
               {isSelf && (
                 <Avatar
