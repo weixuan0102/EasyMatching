@@ -48,6 +48,7 @@ export default async function ConversationPage(props: ConversationPageProps) {
         participants: conversation.participants.map((participant) => ({
           id: participant.id,
           role: participant.role,
+          isActive: participant.isActive,
           user: {
             id: participant.user.id,
             username: participant.user.username,
