@@ -42,7 +42,7 @@ export default function ChatRoom({
   initialMessages,
   currentUserId
 }: ChatRoomProps) {
-  const { messages, error, sendMessage, clearError } = useChat({
+  const { messages, error, sendMessage, editMessage, deleteMessage, clearError } = useChat({
     conversationId,
     initialMessages
   });
@@ -106,6 +106,8 @@ export default function ChatRoom({
           messages={messages}
           currentUserId={currentUserId}
           onReply={setReplyTo}
+          onEdit={editMessage}
+          onDelete={deleteMessage}
         />
       </Box>
       <Divider />

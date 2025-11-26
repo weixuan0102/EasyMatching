@@ -1,9 +1,14 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { Avatar, Box, Stack, Typography } from '@mui/material';
+import { useEffect, useRef, useState } from 'react';
+import { Avatar, Box, Chip, IconButton, Menu, MenuItem, Stack, Typography } from '@mui/material';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+
+import { detectAndRenderLinks } from '@/utils/linkDetection';
+import LinkConfirmDialog from '@/components/common/LinkConfirmDialog';
+import EditMessageDialog from '@/components/chat/EditMessageDialog';
 
 dayjs.extend(relativeTime);
 
@@ -29,24 +34,86 @@ export type MessageListItem = {
   } | null;
   videoUrl: string | null;
   audioUrl: string | null;
+  editedAt: string | null;
+  isDeleted: boolean;
 };
 
 type MessageListProps = {
   messages: MessageListItem[];
   currentUserId: string;
   onReply: (message: MessageListItem) => void;
+  onEdit: (messageId: string, newContent: string) => Promise<void>;
+  onDelete: (messageId: string) => Promise<void>;
 };
 
 export default function MessageList({
   messages,
   currentUserId,
-  onReply
+  onReply,
+  onEdit,
+  onDelete
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [linkUrl, setLinkUrl] = useState<string | null>(null);
+  const [editingMessage, setEditingMessage] = useState<MessageListItem | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<{ el: HTMLElement; messageId: string } | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const handleLinkClick = (url: string) => {
+    setLinkUrl(url);
+  };
+
+  const handleConfirmLink = () => {
+    if (linkUrl) {
+      window.open(linkUrl, '_blank', 'noopener,noreferrer');
+      setLinkUrl(null);
+    }
+  };
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>, messageId: string) => {
+    setMenuAnchor({ el: event.currentTarget, messageId });
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchor(null);
+  };
+
+  const handleEditClick = () => {
+    const message = messages.find(m => m.id === menuAnchor?.messageId);
+    if (message) {
+      setEditingMessage(message);
+    }
+    handleMenuClose();
+  };
+
+  const handleDeleteClick = async () => {
+    const messageId = menuAnchor?.messageId;
+    handleMenuClose();
+
+    if (messageId && window.confirm('確定要刪除此訊息嗎？')) {
+      try {
+        await onDelete(messageId);
+      } catch (error) {
+        console.error('Delete failed:', error);
+      }
+    }
+  };
+
+  const handleSaveEdit = async (newContent: string) => {
+    if (editingMessage) {
+      await onEdit(editingMessage.id, newContent);
+      setEditingMessage(null);
+    }
+  };
+
+  const canEditOrDelete = (message: MessageListItem) => {
+    if (message.senderId !== currentUserId || message.isDeleted) return false;
+    const timeSinceCreation = Date.now() - new Date(message.createdAt).getTime();
+    return timeSinceCreation <= 5 * 60 * 1000; // 5 minutes
+  };
 
   return (
     <Box
@@ -89,17 +156,20 @@ export default function MessageList({
                 alignItems={alignment}
                 sx={{
                   maxWidth: '70%',
-                  '&:hover .reply-button': {
+                  '&:hover .message-actions': {
                     opacity: 1
                   }
                 }}
               >
-                <Stack direction="row" justifyContent={alignment}>
+                <Stack direction="row" justifyContent={alignment} alignItems="center" spacing={1}>
                   <Typography variant="caption" color="text.secondary">
                     {isSelf ? '我' : message.sender.username}
                   </Typography>
+                  {message.editedAt && (
+                    <Chip label="已編輯" size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
+                  )}
                 </Stack>
-                {message.replyTo && (
+                {message.replyTo && !message.isDeleted && (
                   <Box
                     sx={{
                       bgcolor: 'action.hover',
@@ -135,8 +205,8 @@ export default function MessageList({
                 <Box
                   id={`message-${message.id}`}
                   sx={{
-                    bgcolor: color,
-                    color: textColor,
+                    bgcolor: message.isDeleted ? 'action.disabledBackground' : color,
+                    color: message.isDeleted ? 'text.disabled' : textColor,
                     px: 2,
                     py: 1.5,
                     borderRadius: 3,
@@ -145,73 +215,99 @@ export default function MessageList({
                     position: 'relative'
                   }}
                 >
-                  {message.imageUrl && (
-                    <Box sx={{ mb: message.content ? 1 : 0 }}>
-                      <img
-                        src={message.imageUrl}
-                        alt="Image"
-                        style={{
-                          maxWidth: '100%',
-                          maxHeight: 300,
-                          borderRadius: 8,
-                          display: 'block'
-                        }}
-                      />
-                    </Box>
-                  )}
-                  {message.videoUrl && (
-                    <Box sx={{ mb: message.content ? 1 : 0 }}>
-                      <video
-                        src={message.videoUrl}
-                        controls
-                        style={{
-                          maxWidth: '100%',
-                          maxHeight: 300,
-                          borderRadius: 8,
-                          display: 'block'
-                        }}
-                      />
-                    </Box>
-                  )}
-                  {message.audioUrl && (
-                    <Box sx={{ mb: message.content ? 1 : 0 }}>
-                      <audio src={message.audioUrl} controls style={{ maxWidth: '100%' }} />
-                    </Box>
-                  )}
-                  {message.content && (
-                    <Typography
-                      variant="body1"
-                      sx={{
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                        overflowWrap: 'anywhere'
-                      }}
-                    >
-                      {message.content}
+                  {message.isDeleted ? (
+                    <Typography variant="body2" fontStyle="italic">
+                      訊息已刪除
                     </Typography>
+                  ) : (
+                    <>
+                      {message.imageUrl && (
+                        <Box sx={{ mb: message.content ? 1 : 0 }}>
+                          <img
+                            src={message.imageUrl}
+                            alt="Image"
+                            style={{
+                              maxWidth: '100%',
+                              maxHeight: 300,
+                              borderRadius: 8,
+                              display: 'block'
+                            }}
+                          />
+                        </Box>
+                      )}
+                      {message.videoUrl && (
+                        <Box sx={{ mb: message.content ? 1 : 0 }}>
+                          <video
+                            src={message.videoUrl}
+                            controls
+                            style={{
+                              maxWidth: '100%',
+                              maxHeight: 300,
+                              borderRadius: 8,
+                              display: 'block'
+                            }}
+                          />
+                        </Box>
+                      )}
+                      {message.audioUrl && (
+                        <Box sx={{ mb: message.content ? 1 : 0 }}>
+                          <audio src={message.audioUrl} controls style={{ maxWidth: '100%' }} />
+                        </Box>
+                      )}
+                      {message.content && (
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere'
+                          }}
+                        >
+                          {detectAndRenderLinks(
+                            message.content,
+                            handleLinkClick,
+                            isSelf ? '#e3f2fd' : '#1565c0'
+                          )}
+                        </Typography>
+                      )}
+                    </>
                   )}
                 </Box>
                 <Stack direction="row" spacing={1} alignItems="center" justifyContent={alignment}>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                  >
+                  <Typography variant="caption" color="text.secondary">
                     {dayjs(message.createdAt).format('YYYY/MM/DD HH:mm')}
                   </Typography>
-                  <Typography
-                    className="reply-button"
-                    variant="caption"
-                    sx={{
-                      cursor: 'pointer',
-                      opacity: 0,
-                      transition: 'opacity 0.2s',
-                      color: 'primary.main',
-                      fontWeight: 500
-                    }}
-                    onClick={() => onReply(message)}
-                  >
-                    回覆
-                  </Typography>
+                  {!message.isDeleted && (
+                    <Stack
+                      className="message-actions"
+                      direction="row"
+                      sx={{
+                        opacity: 0,
+                        transition: 'opacity 0.2s'
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          cursor: 'pointer',
+                          color: 'primary.main',
+                          fontWeight: 500
+                        }}
+                        onClick={() => onReply(message)}
+                      >
+                        回覆
+                      </Typography>
+                      {canEditOrDelete(message) && (
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleMenuOpen(e, message.id)}
+                          sx={{ ml: 0.5, p: 0.5 }}
+                        >
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Stack>
+                  )}
                 </Stack>
               </Stack>
               {isSelf && (
@@ -227,7 +323,29 @@ export default function MessageList({
         })}
       </Stack>
       <div ref={bottomRef} />
+
+      <Menu
+        anchorEl={menuAnchor?.el}
+        open={Boolean(menuAnchor)}
+        onClose={handleMenuClose}
+      >
+        <MenuItem onClick={handleEditClick}>編輯</MenuItem>
+        <MenuItem onClick={handleDeleteClick} sx={{ color: 'error.main' }}>刪除</MenuItem>
+      </Menu>
+
+      <LinkConfirmDialog
+        open={Boolean(linkUrl)}
+        url={linkUrl}
+        onClose={() => setLinkUrl(null)}
+        onConfirm={handleConfirmLink}
+      />
+
+      <EditMessageDialog
+        open={Boolean(editingMessage)}
+        initialContent={editingMessage?.content ?? ''}
+        onClose={() => setEditingMessage(null)}
+        onSave={handleSaveEdit}
+      />
     </Box>
   );
 }
-

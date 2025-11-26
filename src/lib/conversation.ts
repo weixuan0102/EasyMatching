@@ -99,6 +99,8 @@ const serializeMessage = (message: MessageWithSender) => ({
   imageUrl: message.imageUrl,
   videoUrl: message.videoUrl,
   audioUrl: message.audioUrl,
+  editedAt: message.editedAt?.toISOString() ?? null,
+  isDeleted: message.isDeleted,
   createdAt: message.createdAt.toISOString(),
   updatedAt: message.updatedAt.toISOString(),
   sender: message.sender,
@@ -350,6 +352,115 @@ export const listMessages = async (conversationId: string) => {
   });
 
   return messages.map(serializeMessage);
+};
+
+const EDIT_TIME_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+
+type EditMessageInput = {
+  messageId: string;
+  userId: string;
+  content: string;
+};
+
+export const editMessage = async ({
+  messageId,
+  userId,
+  content
+}: EditMessageInput) => {
+  const message = await prisma.message.findUnique({
+    where: { id: messageId }
+  });
+
+  if (!message) {
+    throw new Error('訊息不存在');
+  }
+
+  if (message.senderId !== userId) {
+    throw new Error('您沒有權限編輯此訊息');
+  }
+
+  if (message.isDeleted) {
+    throw new Error('無法編輯已刪除的訊息');
+  }
+
+  const timeSinceCreation = Date.now() - message.createdAt.getTime();
+  if (timeSinceCreation > EDIT_TIME_LIMIT_MS) {
+    throw new Error('訊息編輯時限已過（5分鐘內可編輯）');
+  }
+
+  const updatedMessage = await prisma.message.update({
+    where: { id: messageId },
+    data: {
+      content,
+      editedAt: new Date()
+    },
+    include: messageInclude
+  });
+
+  const serialized = serializeMessage(updatedMessage);
+
+  // Broadcast update via Pusher
+  await pusherServer.trigger(
+    `conversation-${message.conversationId}`,
+    'message:updated',
+    serialized
+  );
+
+  return serialized;
+};
+
+type DeleteMessageInput = {
+  messageId: string;
+  userId: string;
+};
+
+export const deleteMessage = async ({
+  messageId,
+  userId
+}: DeleteMessageInput) => {
+  const message = await prisma.message.findUnique({
+    where: { id: messageId }
+  });
+
+  if (!message) {
+    throw new Error('訊息不存在');
+  }
+
+  if (message.senderId !== userId) {
+    throw new Error('您沒有權限刪除此訊息');
+  }
+
+  if (message.isDeleted) {
+    throw new Error('訊息已被刪除');
+  }
+
+  const timeSinceCreation = Date.now() - message.createdAt.getTime();
+  if (timeSinceCreation > EDIT_TIME_LIMIT_MS) {
+    throw new Error('訊息刪除時限已過（5分鐘內可刪除）');
+  }
+
+  const deletedMessage = await prisma.message.update({
+    where: { id: messageId },
+    data: {
+      isDeleted: true,
+      content: '',
+      imageUrl: null,
+      videoUrl: null,
+      audioUrl: null
+    },
+    include: messageInclude
+  });
+
+  const serialized = serializeMessage(deletedMessage);
+
+  // Broadcast deletion via Pusher
+  await pusherServer.trigger(
+    `conversation-${message.conversationId}`,
+    'message:deleted',
+    serialized
+  );
+
+  return serialized;
 };
 
 export const getConversationDetail = async (conversationId: string) => {
