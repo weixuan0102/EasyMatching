@@ -1,35 +1,45 @@
 # EasyMatching
 
-EasyMatching 是一個以興趣為基礎的聊天交友平台，支援多重 OAuth 登入、使用者自訂 userID、一對一/群組聊天室與即時配對推薦。
+EasyMatching is an interest-based dating and chat platform that supports multiple OAuth logins, custom user IDs, one-on-one/group chat rooms, and real-time matching recommendations.
 
-## 核心功能
+## Core Features
 
-- **登入註冊**
-  - Google、GitHub、Facebook OAuth
-  - 首次註冊需設定唯一 `userID`，之後可直接以 `userID` 快速登入
-  - 登入紀錄儲存在瀏覽器，可一鍵切換帳號
-- **個人資料**
-  - 可修改使用者名稱、頭像、自我簡介（最多 100 字）
-  - 透過勾選興趣標籤完成 Onboarding
-- **匹配推薦**
-  - 根據共同興趣推薦使用者，顯示對方基本資料、自我介紹、共同/其他興趣
-  - 支援以 `userID` 或使用者名稱搜尋
-  - 可直接建立聊天室開始對話
-- **聊天室**
-  - 左側列出所有對話，支援一對一與群組
-  - 即時訊息更新（Pusher）
+- **Authentication**
+  - Google, GitHub, Facebook OAuth
+  - First-time registration requires setting a unique `userID`, which can be used for quick login later
+  - Login history is stored in the browser for one-click account switching
+- **Profile**
+  - Edit username, avatar, and bio (max 100 characters)
+  - Complete onboarding by selecting interest tags
+  - **[NEW] Account Management**: View and restore users who were Passed or Unmatched
+- **Matching & Recommendations**
+  - Recommend users based on common interests, displaying basic info, bio, and shared/other interests
+  - Support search by `userID` or username
+  - **Like/Pass**: Swipe left to Pass, swipe right to Like. A match is formed when both users like each other
+  - **Real-time Notifications**: Notification count in the navigation bar updates immediately when receiving a Like
+- **Likes List**
+  - View who liked you, with options to Like back (Match) or Pass
+- **Chat Room**
+  - Left sidebar lists all conversations, supporting one-on-one and group chats
+  - **Real-time Messaging**: Integrated with Pusher for instant message delivery
+  - **Conversation Management**:
+    - **Unmatch**: The other party will no longer be able to send messages, and the chat moves to the "Unmatched" list
+    - **Delete**: Only deletes the chat history on your side (Soft Delete); the other party retains the chat
+    - **Report**: Report users for harassment or inappropriate behavior
 
-## 技術棧
+## Tech Stack
 
-- Next.js 16（App Router, TypeScript）
-- NextAuth + Prisma + MongoDB
-- Material UI, Axios, SWR
-- Pusher (即時訊息)
+- **Frontend**: Next.js 16 (App Router), React 19, TypeScript, Material UI (MUI v7)
+- **Backend**: Next.js API Routes
+- **Database**: MongoDB, Prisma ORM
+- **Auth**: NextAuth.js (Google, GitHub, Facebook)
+- **Real-time**: Pusher
+- **State Management/Data Fetching**: SWR, Axios
 
-## 環境設定
+## Setup
 
-1. 複製 `.env.example` 為 `.env.local`，並填入實際值（MongoDB、NextAuth、OAuth、Pusher）。
-2. 安裝依賴、生成 Prisma Client 與同步資料表：
+1. Copy `.env.example` to `.env.local` and fill in the actual values (MongoDB, NextAuth, OAuth, Pusher).
+2. Install dependencies, generate Prisma Client, and push schema:
 
 ```bash
 yarn install
@@ -38,29 +48,38 @@ yarn prisma:push
 yarn prisma:seed
 ```
 
-3. 本地啟動：
+3. Start locally:
 
 ```bash
 yarn dev
 ```
 
-如需同時啟動 MongoDB，可執行 `./start-all.sh`。
+To start MongoDB simultaneously (if using local Docker), you can run `./start-all.sh`.
 
-## API 重點
+## Key APIs
 
-- `GET /api/matching?search=`：取得推薦使用者與共同興趣
-- `POST /api/conversations`：建立或取得一對一/群組對話
-- `GET/PUT /api/user`：取得與更新個人資料
-- `GET/PUT /api/user/hobbies`：取得與更新興趣標籤
+- **Matching**
+  - `GET /api/matching?search=`：Get recommended users and common interests
+  - `POST /api/matching/swipe`：Perform LIKE or PASS action
+  - `GET /api/matching/likes`：Get list of users who liked me
+- **Conversation**
+  - `POST /api/conversations`：Create or get one-on-one/group conversation
+  - `POST /api/conversations/[id]/unmatch`：Unmatch user
+  - `POST /api/conversations/[id]/delete`：Delete conversation (Soft Delete)
+- **User**
+  - `GET/PUT /api/user`：Get and update profile
+  - `GET/PUT /api/user/hobbies`：Get and update interest tags
+  - `GET /api/user/likes/count`：Get unread like notification count
+  - `GET /api/user/ignored`：Get ignored/unmatched users
+  - `POST /api/user/ignored/restore`：Restore ignored user to matching pool
 
-## 測試與建置
+## Test & Build
 
-- 程式碼風格檢查：`yarn lint`
-- 建置正式版：`yarn build`
+- Linting: `yarn lint`
+- Build for production: `yarn build`
 
-## 開發筆記
+## Development Notes
 
-- `SessionTracker` 會在登入成功後，將 userID 與顯示名稱儲存在瀏覽器，供登入頁快速切換。
-- `uid` 為系統內部識別碼，`loginId` 為使用者設定的登入帳號（顯示於側邊欄與搜尋）。
-- 匹配結果預設依共同興趣數量排序，同分時以使用者名稱排序。搜尋時會優先顯示符合條件的使用者，即使共同興趣為 0 也會出現在結果中。
-
+- **SessionTracker**: Stores userID and display name in the browser after successful login for quick switching on the login page.
+- **Soft Delete**: Conversation deletion uses Soft Delete (`isDeleted` flag) to ensure that when one party deletes the chat, the other party still retains the chat history and user info (preventing "Unnamed Conversation" issues).
+- **Ignored Users**: "Ignored" includes users who were actively PASSed, Unmatched, or whose conversation was Deleted. These users can be restored via the management feature in the Profile page.
