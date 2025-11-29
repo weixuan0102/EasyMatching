@@ -126,6 +126,7 @@ model ConversationParticipant {
   userId         String        @db.ObjectId
   role           String        @default("member")
   isActive       Boolean       @default(true)
+  isDeleted      Boolean       @default(false)
   joinedAt       DateTime      @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id])

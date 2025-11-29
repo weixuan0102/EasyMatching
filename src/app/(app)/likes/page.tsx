@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSWRConfig } from 'swr';
 import {
     Avatar,
     Box,
@@ -37,6 +38,7 @@ type Liker = {
 
 export default function LikesPage() {
     const router = useRouter();
+    const { mutate } = useSWRConfig();
     const [likes, setLikes] = useState<Liker[]>([]);
     const [loading, setLoading] = useState(true);
     const [matchData, setMatchData] = useState<{ match: boolean; username: string } | null>(null);
@@ -58,14 +60,22 @@ export default function LikesPage() {
     }, []);
 
     const handleAction = async (targetId: string, action: 'LIKE' | 'PASS') => {
-        // Optimistic remove
+        // Optimistic remove from list
         setLikes((prev) => prev.filter((l) => l.id !== targetId));
+
+        // Optimistic update for badge count
+        mutate('/api/user/likes/count', (data: { count: number } | undefined) => {
+            return { count: Math.max(0, (data?.count ?? 1) - 1) };
+        }, false);
 
         try {
             const response = await apiClient.post('/api/matching/swipe', {
                 targetId,
                 action
             });
+
+            // Revalidate to ensure sync with server
+            mutate('/api/user/likes/count');
 
             if (response.data.match) {
                 const user = likes.find((l) => l.id === targetId);
@@ -75,7 +85,8 @@ export default function LikesPage() {
             }
         } catch (error) {
             console.error('Action failed', error);
-            // Revert if needed, but for now just log
+            // Revert if needed (optional, but good practice would be to re-fetch)
+            mutate('/api/user/likes/count');
         }
     };
 

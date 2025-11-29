@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createConversation } from '@/lib/conversation';
+import { pusherServer } from '@/lib/pusher-server';
 
 const SWIPE_SCHEMA = z.object({
     targetId: z.string(),
@@ -78,6 +79,11 @@ export async function POST(req: Request) {
     let isMatch = false;
 
     if (action === 'LIKE') {
+        // Trigger Pusher event for real-time notification
+        await pusherServer?.trigger(`user-${targetId}`, 'incoming-like', {
+            swiperId: userId
+        });
+
         // Check if target liked current user
         const targetSwipe = await prisma.swipe.findUnique({
             where: {

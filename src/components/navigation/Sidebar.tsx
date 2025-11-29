@@ -1,11 +1,13 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
+import useSWR, { useSWRConfig } from 'swr';
 import {
   Avatar,
+  Badge,
   Box,
   Button,
   Divider,
@@ -21,6 +23,9 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import LogoutIcon from '@mui/icons-material/Logout';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+
+import { apiClient } from '@/lib/api';
+import { getPusherClient } from '@/lib/pusher-client';
 
 type NavItem = {
   label: string;
@@ -51,9 +56,34 @@ const navItems: NavItem[] = [
   }
 ];
 
+const fetcher = (url: string) => apiClient.get(url).then((res) => res.data);
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { mutate } = useSWRConfig();
+  const { data: likesData } = useSWR<{ count: number }>('/api/user/likes/count', fetcher, {
+    refreshInterval: 30000 // Refresh every 30 seconds
+  });
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      return;
+    }
+
+    const pusher = getPusherClient();
+    const channelName = `user-${session.user.id}`;
+    const channel = pusher.subscribe(channelName);
+
+    channel.bind('incoming-like', () => {
+      mutate('/api/user/likes/count');
+    });
+
+    return () => {
+      channel.unbind('incoming-like');
+      pusher.unsubscribe(channelName);
+    };
+  }, [session?.user?.id, mutate]);
 
   const activeHref = useMemo(() => {
     if (!pathname) {
@@ -114,6 +144,8 @@ export default function Sidebar() {
       <List sx={{ flexGrow: 1, px: 0 }}>
         {navItems.map((item) => {
           const isActive = activeHref === item.href;
+          const isLikes = item.href === '/likes';
+          const showBadge = isLikes && (likesData?.count ?? 0) > 0;
 
           return (
             <ListItemButton
@@ -133,7 +165,15 @@ export default function Sidebar() {
                 }
               }}
             >
-              <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                {showBadge ? (
+                  <Badge badgeContent={likesData?.count} color="error">
+                    {item.icon}
+                  </Badge>
+                ) : (
+                  item.icon
+                )}
+              </ListItemIcon>
               <ListItemText primary={item.label} />
             </ListItemButton>
           );

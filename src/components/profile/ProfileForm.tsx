@@ -20,6 +20,7 @@ import {
 import { useSession } from 'next-auth/react';
 
 import { apiClient } from '@/lib/api';
+import IgnoredUsersDialog from './IgnoredUsersDialog';
 
 type HobbyItem = {
   id: string;
@@ -57,6 +58,7 @@ export default function ProfileForm({ profile, hobbies }: ProfileFormProps) {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingHobbies, setIsSavingHobbies] = useState(false);
   const [snackbar, setSnackbar] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [isIgnoredUsersDialogOpen, setIsIgnoredUsersDialogOpen] = useState(false);
 
   useEffect(() => {
     const next = {
@@ -284,12 +286,33 @@ export default function ProfileForm({ profile, hobbies }: ProfileFormProps) {
         </CardContent>
       </Card>
 
+      <Card component="section">
+        <CardHeader
+          title="帳號管理"
+          subheader="管理您的帳號設定與封鎖名單"
+        />
+        <CardContent>
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={() => setIsIgnoredUsersDialogOpen(true)}
+          >
+            管理已略過/解除配對的用戶
+          </Button>
+        </CardContent>
+      </Card>
+
       <Snackbar
         open={Boolean(snackbar)}
         onClose={() => setSnackbar(null)}
         message={snackbar?.message}
         autoHideDuration={4000}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
+
+      <IgnoredUsersDialog
+        open={isIgnoredUsersDialogOpen}
+        onClose={() => setIsIgnoredUsersDialogOpen(false)}
       />
     </Stack>
   );

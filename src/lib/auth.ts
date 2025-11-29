@@ -1,7 +1,4 @@
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import FacebookProvider from 'next-auth/providers/facebook';
-import GitHubProvider from 'next-auth/providers/github';
 import GoogleProvider from 'next-auth/providers/google';
 import { getServerSession, type NextAuthOptions } from 'next-auth';
 
@@ -35,58 +32,6 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: requiredEnv('GOOGLE_CLIENT_ID'),
       clientSecret: requiredEnv('GOOGLE_CLIENT_SECRET')
-    }),
-    ...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
-      ? [
-          GitHubProvider({
-            clientId: requiredEnv('GITHUB_CLIENT_ID'),
-            clientSecret: requiredEnv('GITHUB_CLIENT_SECRET')
-          })
-        ]
-      : []),
-    ...(process.env.FACEBOOK_CLIENT_ID && process.env.FACEBOOK_CLIENT_SECRET
-      ? [
-          FacebookProvider({
-            clientId: requiredEnv('FACEBOOK_CLIENT_ID'),
-            clientSecret: requiredEnv('FACEBOOK_CLIENT_SECRET')
-          })
-        ]
-      : []),
-    CredentialsProvider({
-      id: 'user-id',
-      name: 'User ID',
-      credentials: {
-        loginId: {
-          label: 'userID',
-          type: 'text',
-          placeholder: 'your_user_id'
-        }
-      },
-      async authorize(credentials) {
-        const raw = credentials?.loginId;
-        if (!raw || raw.trim().length === 0) {
-          return null;
-        }
-
-        const formatted = normalizeLoginId(raw);
-
-        const user = await prisma.user.findFirst({
-          where: {
-            loginId: formatted
-          }
-        });
-
-        if (!user) {
-          return null;
-        }
-
-        await ensureUserIdentifiers(
-          user.id,
-          user.name ?? user.email ?? null
-        );
-
-        return user;
-      }
     })
   ],
   callbacks: {

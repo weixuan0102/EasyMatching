@@ -120,7 +120,8 @@ export const listUserConversations = async (userId: string) => {
     where: {
       participants: {
         some: {
-          userId
+          userId,
+          isDeleted: false
         }
       }
     },
@@ -218,6 +219,33 @@ export const createConversation = async ({
     });
 
     if (existing) {
+      // Check if we need to reactivate participants or restore deleted ones
+      const inactiveOrDeletedParticipants = existing.participants.filter(p => !p.isActive || p.isDeleted);
+
+      if (inactiveOrDeletedParticipants.length > 0) {
+        await prisma.conversationParticipant.updateMany({
+          where: {
+            id: {
+              in: inactiveOrDeletedParticipants.map(p => p.id)
+            }
+          },
+          data: {
+            isActive: true,
+            isDeleted: false
+          }
+        });
+
+        // Refetch to get updated state
+        const updated = await prisma.conversation.findUnique({
+          where: { id: existing.id },
+          include: conversationInclude
+        });
+
+        if (updated) {
+          return serializeConversation(updated);
+        }
+      }
+
       return serializeConversation(existing);
     }
   }

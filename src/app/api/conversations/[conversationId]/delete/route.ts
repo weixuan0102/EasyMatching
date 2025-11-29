@@ -20,11 +20,14 @@ export async function DELETE(_request: Request, context: RouteContext) {
     const { conversationId } = await context.params;
 
     try {
-        // Delete the user's participation in this conversation
-        const result = await prisma.conversationParticipant.deleteMany({
+        // Soft delete the user's participation in this conversation
+        const result = await prisma.conversationParticipant.updateMany({
             where: {
                 conversationId,
                 userId: session.user.id
+            },
+            data: {
+                isDeleted: true
             }
         });
 
