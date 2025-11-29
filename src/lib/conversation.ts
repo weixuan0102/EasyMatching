@@ -18,7 +18,7 @@ const conversationInclude = {
   },
   messages: {
     orderBy: {
-      createdAt: 'desc'
+      createdAt: 'desc' as const
     },
     take: 1,
     include: {
@@ -31,7 +31,7 @@ const conversationInclude = {
       }
     }
   }
-} satisfies Prisma.ConversationInclude;
+};
 
 const messageInclude = {
   sender: {
@@ -53,7 +53,7 @@ const messageInclude = {
       }
     }
   }
-} satisfies Prisma.MessageInclude;
+};
 
 type ConversationWithExtras = Prisma.ConversationGetPayload<{
   include: typeof conversationInclude;
@@ -122,14 +122,14 @@ export const listUserConversations = async (userId: string) => {
         some: {
           userId,
           isDeleted: false
-        }
+        } as any
       }
     },
     orderBy: {
-      lastMessageAt: 'desc'
+      lastMessageAt: 'desc' as const
     },
     include: conversationInclude
-  });
+  }) as unknown as ConversationWithExtras[];
 
   return conversations.map(serializeConversation);
 };
@@ -216,11 +216,11 @@ export const createConversation = async ({
         ]
       },
       include: conversationInclude
-    });
+    }) as unknown as ConversationWithExtras;
 
     if (existing) {
       // Check if we need to reactivate participants or restore deleted ones
-      const inactiveOrDeletedParticipants = existing.participants.filter(p => !p.isActive || p.isDeleted);
+      const inactiveOrDeletedParticipants = existing.participants.filter(p => !p.isActive || (p as any).isDeleted);
 
       if (inactiveOrDeletedParticipants.length > 0) {
         await prisma.conversationParticipant.updateMany({
@@ -232,7 +232,7 @@ export const createConversation = async ({
           data: {
             isActive: true,
             isDeleted: false
-          }
+          } as any
         });
 
         // Refetch to get updated state
@@ -373,7 +373,7 @@ export const listMessages = async (conversationId: string) => {
   const messages = await prisma.message.findMany({
     where: { conversationId },
     orderBy: {
-      createdAt: 'asc'
+      createdAt: 'asc' as const
     },
     include: messageInclude,
     take: 100

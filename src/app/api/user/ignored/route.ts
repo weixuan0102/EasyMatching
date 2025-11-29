@@ -105,7 +105,7 @@ export async function GET() {
                 return true;
             }
 
-            if (conversation.isDeleted) {
+            if ((conversation as any).isDeleted) {
                 // Conversation soft deleted
                 return true;
             }

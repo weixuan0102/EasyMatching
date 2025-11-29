@@ -28,7 +28,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
             },
             data: {
                 isDeleted: true
-            }
+            } as any
         });
 
         if (result.count === 0) {
